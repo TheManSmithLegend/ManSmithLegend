@@ -1,0 +1,12 @@
+[
+  {
+		"name": "coke can",
+		"damage": 10
+  },
+
+  {
+		"name": "coke bottle",
+		"damage": 20
+  }
+
+]
