@@ -117,18 +117,18 @@ class Player(pygame.sprite.Sprite):
         return self.rect.center
 
 player = Player()
-
+levelSelected = "Level_1"
 
 stars_group = pygame.sprite.Group()
 ground_group = pygame.sprite.Group()
 stars_timer = 0
 
-ground_group.add(ground(0,GROUND_LEVEL,700,300))
-ground_group.add(ground(300,450,200,5))
-ground_group.add(ground(100,100,200,5))
-ground_group.add(ground(700,830,800,60))
-ground_group.add(ground(800,450,200,5))
-
+with open('levels.json') as levels_file:
+    levelData = json.load(levels_file)
+    for floor in levelData[levelSelected]:
+        for x in floor:
+            y = tuple(floor[x])
+            ground_group.add(ground(*(y)))
 
 while True:
     pygame.init()
