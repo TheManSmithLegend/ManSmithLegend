@@ -3,10 +3,11 @@ from pygame.locals import *
 screen_width, screen_height = 1542, 880
 screen = pygame.display.set_mode((screen_width, screen_height))
 fps = pygame.time.Clock()
-GROUND_LEVEL = 700
-GRAVITY = 4
+gravity = 4
+jumpPower = 30
 camera_right = False
 camera_left = False
+levelSelected = "Level_1"
 
 class stars(pygame.sprite.Sprite):
     def __init__(self,x):
@@ -55,35 +56,38 @@ class ground(pygame.sprite.Sprite):
 
 class Player(pygame.sprite.Sprite):
     def __init__(self):
-        self.image = pygame.Surface((50,50))
+        global jumpPower
+        self.image = pygame.Surface((50,70))
         self.image.fill((255,255,255))
         self.rect = self.image.get_rect(center = (screen_width/4,50))
-        self.jump_vel = 30
+        self.jump_vel = jumpPower
+        self.facing = 1
         self.gravitystate = False
+        self.fallstate = False
         self.moving = False
         self.Rbasemove = 5
         self.Lbasemove = 5
     def update(self, pressed_keys):
-        global GRAVITY
+        global gravity, jumpPower
         #jumping mechanics
         if self.gravitystate:
             self.rect.y -= self.jump_vel
-            if self.jump_vel <= -30:
-                self.jump_vel = -30
+            if self.jump_vel <= -jumpPower:
+                self.jump_vel = -jumpPower
             else:
-                self.jump_vel -= 3
+                self.jump_vel -= 2
 
         #Collisions
         player_gdcollisions = pygame.sprite.spritecollide(player, ground_group, dokill = False, collided = None)
         for x in player_gdcollisions:
             if abs(self.rect.bottom-x.rect.top) <= 30:
                 self.rect.bottom = x.rect.top + 1
-                self.jump_vel = 30
+                self.jump_vel = jumpPower
                 self.gravitystate = False
-                GRAVITY = 4
+                gravity = 4
             elif abs(self.rect.top-x.rect.bottom) <= 30:
                 self.rect.top = x.rect.bottom
-                self.jump_vel = 30
+                self.jump_vel = jumpPower
                 self.gravitystate = False
             elif abs(self.rect.left-x.rect.right) <= 20:
                 self.rect.left = x.rect.right
@@ -93,8 +97,10 @@ class Player(pygame.sprite.Sprite):
         #Controls and Camera View
         if pressed_keys[K_d]:
             self.rect.move_ip(self.Rbasemove,0)
+            self.facing = 1
         if pressed_keys[K_a]:
             self.rect.move_ip(-self.Lbasemove,0)
+            self.facing = -1
         #speed of character is changed based on the camera movement
         if camera_right:
             self.rect.move_ip(-3,0)
@@ -107,30 +113,55 @@ class Player(pygame.sprite.Sprite):
 
         #Gravity when in the state of freefall and not jumping
         if not player_gdcollisions and self.gravitystate == False:
-            self.rect.y += GRAVITY
-            if GRAVITY >= 28:
-                GRAVITY = 28
+            self.rect.y += gravity
+            if gravity >= 28:
+                gravity = 28
             else:
-                GRAVITY += 4
-
+                gravity += 4
     def player_pos(self):
         return self.rect.center
 
-player = Player()
-levelSelected = "Level_1"
+class Projectile(pygame.sprite.Sprite):
+    def __init__(self, posx, posy, facing):
+        super(Projectile,self).__init__()
+        self.image = pygame.Surface((8,8))
+        self.image.fill((255,255,0))
+        self.rect = self.image.get_rect(center = (posx, posy))
+        self.vel = 10
+        self.facing = facing
+        self.damage = 10
 
-stars_group = pygame.sprite.Group()
+    def update(self):
+        self.rect.x += self.vel * self.facing
+        if self.rect.x > screen_width or self.rect.x < 0:
+            self.kill()
+
+def drawGameWindow():
+    screen.fill((0,0,0))
+    projectile_group.draw(screen)
+    player.update(pressed_keys)
+    screen.blit(player.image,player.rect)
+    stars_group.draw(screen)
+    ground_group.draw(screen)
+    stars_group.update()
+    ground_group.update(pressed_keys)
+    projectile_group.update()
+    pygame.display.update()
+
 ground_group = pygame.sprite.Group()
-stars_timer = 0
+stars_group = pygame.sprite.Group()
+projectile_group = pygame.sprite.Group()
 
-with open('levels.json') as levels_file:
+with open("C:\\Users\\splinterpod\\Desktop\\ManSmithLegend\\data\\levels.json") as levels_file:
     levelData = json.load(levels_file)
     for floor in levelData[levelSelected]:
         for x in floor:
-            y = tuple(floor[x])
-            ground_group.add(ground(*(y)))
+            ground_group.add(ground(*(tuple(floor[x]))))
 
-while True:
+player = Player()
+stars_timer = 0
+run = True
+while run:
     pygame.init()
     timer = pygame.time.get_ticks()
     pressed_keys = pygame.key.get_pressed()
@@ -138,24 +169,20 @@ while True:
     for event in pygame.event.get():
         if event.type == KEYDOWN:
             if event.key == K_ESCAPE:
-                pygame.quit()
-                sys.exit()
+                run = False
             if event.key == K_SPACE:
                 player.gravitystate = True
             if event.key == K_r:
                 player.rect.center = (140,50)
-
+            if event.key == K_f:
+                projectile_group.add(Projectile(player.rect.x+25, player.rect.y+30, player.facing))
     if timer-stars_timer >= 100:
         for x in range(1,8):
             y = random.randint(0,880)
             stars_group.add(stars(y))
         stars_timer = timer
-    screen.fill((0,0,0))
-    player.update(pressed_keys)
-    screen.blit(player.image,player.rect)
-    stars_group.draw(screen)
-    ground_group.draw(screen)
-    stars_group.update()
-    ground_group.update(pressed_keys)
-    pygame.display.update()
+    drawGameWindow()
     fps.tick(60)
+
+pygame.quit()
+sys.exit()
