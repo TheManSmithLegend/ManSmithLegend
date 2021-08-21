@@ -53,7 +53,6 @@ class ground(pygame.sprite.Sprite):
             player.Rbasemove = 5
             player.Lbasemove = 5
 
-
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         global jumpPower
@@ -101,6 +100,7 @@ class Player(pygame.sprite.Sprite):
         if pressed_keys[K_a]:
             self.rect.move_ip(-self.Lbasemove,0)
             self.facing = -1
+
         #speed of character is changed based on the camera movement
         if camera_right:
             self.rect.move_ip(-3,0)
@@ -121,6 +121,7 @@ class Player(pygame.sprite.Sprite):
     def player_pos(self):
         return self.rect.center
 
+
 class Projectile(pygame.sprite.Sprite):
     def __init__(self, posx, posy, facing):
         super(Projectile,self).__init__()
@@ -135,6 +136,17 @@ class Projectile(pygame.sprite.Sprite):
         self.rect.x += self.vel * self.facing
         if self.rect.x > screen_width or self.rect.x < 0:
             self.kill()
+#to be added - SMART enemy class / enemy subclasses
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, posx, posy):
+        super(Enemy,self).__init__()
+
+    def update(self):
+        self.kill()
+
+class Minion(Enemy):
+    def __init__(self, width, height, human_form):
+        super().__init__(width, height)
 
 def drawGameWindow():
     screen.fill((0,0,0))
@@ -154,9 +166,9 @@ projectile_group = pygame.sprite.Group()
 
 with open("C:\\Users\\splinterpod\\Desktop\\ManSmithLegend\\data\\levels.json") as levels_file:
     levelData = json.load(levels_file)
-    for floor in levelData[levelSelected]:
-        for x in floor:
-            ground_group.add(ground(*(tuple(floor[x]))))
+    for item in levelData[levelSelected]['structures']:
+        for args in item:
+            ground_group.add(ground(*(tuple(item[args]))))
 
 player = Player()
 stars_timer = 0
