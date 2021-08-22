@@ -11,7 +11,7 @@
       ],
 
       "enemies": [{
-        "minion":[0, true]
+        "minion":[500, 800]
         }
       ]
 

@@ -3,8 +3,8 @@ from pygame.locals import *
 screen_width, screen_height = 1542, 880
 screen = pygame.display.set_mode((screen_width, screen_height))
 fps = pygame.time.Clock()
-gravity = 4
 jumpPower = 30
+commonGravity = 4
 camera_right = False
 camera_left = False
 levelSelected = "Level_1"
@@ -62,12 +62,12 @@ class Player(pygame.sprite.Sprite):
         self.jump_vel = jumpPower
         self.facing = 1
         self.gravitystate = False
-        self.fallstate = False
+        self.gravity = commonGravity
         self.moving = False
         self.Rbasemove = 5
         self.Lbasemove = 5
     def update(self, pressed_keys):
-        global gravity, jumpPower
+        global jumpPower
         #jumping mechanics
         if self.gravitystate:
             self.rect.y -= self.jump_vel
@@ -83,7 +83,7 @@ class Player(pygame.sprite.Sprite):
                 self.rect.bottom = x.rect.top + 1
                 self.jump_vel = jumpPower
                 self.gravitystate = False
-                gravity = 4
+                self.gravity = 4
             elif abs(self.rect.top-x.rect.bottom) <= 30:
                 self.rect.top = x.rect.bottom
                 self.jump_vel = jumpPower
@@ -113,11 +113,12 @@ class Player(pygame.sprite.Sprite):
 
         #Gravity when in the state of freefall and not jumping
         if not player_gdcollisions and self.gravitystate == False:
-            self.rect.y += gravity
-            if gravity >= 28:
-                gravity = 28
+            self.rect.y += self.gravity
+            if self.gravity >= 28:
+                self.gravity = 28
             else:
-                gravity += 4
+                self.gravity += 4
+
     def player_pos(self):
         return self.rect.center
 
@@ -140,9 +141,25 @@ class Projectile(pygame.sprite.Sprite):
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, posx, posy):
         super(Enemy,self).__init__()
+        self.image = pygame.Surface((30,50))
+        self.image.fill((255,50,50))
+        self.rect = self.image.get_rect(center = (posx, posy))
+        self.gravitystate = False
+        self.jump_vel = jumpPower
+        self.gravity = commonGravity
 
     def update(self):
-        self.kill()
+        if self.gravitystate:
+            self.rect.y -= self.jump_vel
+            if self.jump_vel <= -jumpPower:
+                self.jump_vel = -jumpPower
+            else:
+                self.jump_vel -= 2
+
+        enemy_gdcollisions = pygame.sprite.groupcollide(enemies_group, ground_group, False, False, collided = None)
+        for enemy in enemy_gdcollisions:
+            print(enemy)
+            print(enemy_gdcollisions[enemy])
 
 class Minion(Enemy):
     def __init__(self, width, height, human_form):
@@ -155,20 +172,26 @@ def drawGameWindow():
     screen.blit(player.image,player.rect)
     stars_group.draw(screen)
     ground_group.draw(screen)
+    enemies_group.draw(screen)
     stars_group.update()
     ground_group.update(pressed_keys)
     projectile_group.update()
+    enemies_group.update()
     pygame.display.update()
 
 ground_group = pygame.sprite.Group()
 stars_group = pygame.sprite.Group()
 projectile_group = pygame.sprite.Group()
+enemies_group = pygame.sprite.Group()
 
-with open("C:\\Users\\splinterpod\\Desktop\\ManSmithLegend\\data\\levels.json") as levels_file:
+with open("C:\\Users\\splin\\github\\ManSmithLegend\\data\\levels.json") as levels_file:
     levelData = json.load(levels_file)
     for item in levelData[levelSelected]['structures']:
         for args in item:
             ground_group.add(ground(*(tuple(item[args]))))
+    for item in levelData[levelSelected]['enemies']:
+        for args in item:
+            enemies_group.add(Enemy(*(tuple(item[args]))))
 
 player = Player()
 stars_timer = 0
