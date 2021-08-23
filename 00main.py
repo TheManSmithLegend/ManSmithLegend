@@ -1,6 +1,7 @@
-import pygame, sys, random, json
+import pygame, sys, random, json, os
 from pygame.locals import *
 pygame.init()
+cwd = os.getcwd()
 screen_width, screen_height = 1542, 880
 screen = pygame.display.set_mode((screen_width, screen_height))
 fps = pygame.time.Clock()
@@ -144,9 +145,9 @@ class Projectile(pygame.sprite.Sprite):
         if self.rect.x > screen_width or self.rect.x < 0:
             self.kill()
 #to be added - SMART enemy class / enemy subclasses
-class Enemy(pygame.sprite.Sprite):
+class StandardMinion(pygame.sprite.Sprite):
     def __init__(self, posx, posy, sentryspeed, attackspeed):
-        super(Enemy,self).__init__()
+        super(StandardMinion,self).__init__()
         self.image = pygame.Surface((30,50))
         self.image.fill((255,50,50))
         self.rect = self.image.get_rect(center = (posx, posy))
@@ -238,9 +239,33 @@ class Enemy(pygame.sprite.Sprite):
                 self.rect.move_ip(-self.attackspeed,0)
 
 
-class Minion(Enemy):
-    def __init__(self, width, height, human_form):
-        super().__init__(width, height)
+class ExplosiveMinion(StandardMinion):
+    def __init__(self, posx, posy, sentryspeed, attackspeed):
+        super().__init__(posx, posy, sentryspeed, attackspeed)
+
+    def update(self):
+        super().update()
+        if abs(self.rect.x-player.rect.x) < 100:
+            print("BOOM!")
+
+class RangedMinion(StandardMinion):
+    def __init__(self, posx, posy, sentryspeed, attackspeed):
+        super().__init__(posx, posy, sentryspeed, attackspeed)
+
+    def update(self):
+        super().update()
+        if abs(self.rect.x-player.rect.x) < 100:
+            print("FIRE!")
+
+class MeleeMinion(StandardMinion):
+    def __init__(self, posx, posy, sentryspeed, attackspeed):
+        super().__init__(posx, posy, sentryspeed, attackspeed)
+
+    def update(self):
+        super().update()
+        if abs(self.rect.x-player.rect.x) < 100:
+            print("HAHA!")
+
 
 def drawGameWindow():
     screen.fill((0,0,0))
@@ -261,15 +286,19 @@ stars_group = pygame.sprite.Group()
 projectile_group = pygame.sprite.Group()
 enemies_group = pygame.sprite.Group()
 
-with open("C:\\Users\\splinterpod\\Desktop\\ManSmithLegend\\data\\levels.json") as levels_file:
+accessLevels = os.path.join(cwd, "data\levels.json")
+with open(accessLevels) as levels_file:
     levelData = json.load(levels_file)
+#SPAWN MAP
     for item in levelData[levelSelected]['structures']:
-        for args in item:
-            ground_group.add(ground(*(tuple(item[args]))))
-            print(item[args])
-    for item in levelData[levelSelected]['enemies']:
-        for args in item:
-            enemies_group.add(Enemy(*(tuple(item[args]))))
+        ground_group.add(ground(*(tuple(levelData[levelSelected]['structures'][item]))))
+#SPAWN ENEMIES
+    for spawn in levelData[levelSelected]['enemies']["ExplosiveMinion"]:
+        enemies_group.add(ExplosiveMinion(*(tuple(levelData[levelSelected]['enemies']["ExplosiveMinion"][spawn]))))
+    for spawn in levelData[levelSelected]['enemies']["RangedMinion"]:
+        enemies_group.add(RangedMinion(*(tuple(levelData[levelSelected]['enemies']["RangedMinion"][spawn]))))
+    for spawn in levelData[levelSelected]['enemies']["MeleeMinion"]:
+        enemies_group.add(MeleeMinion(*(tuple(levelData[levelSelected]['enemies']["MeleeMinion"][spawn]))))
 
 player = Player()
 stars_timer = 0

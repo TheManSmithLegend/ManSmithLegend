@@ -1,22 +1,31 @@
 {
   "Level_1": {
 
-      "structures": [{
+      "structures": {
         "main_floor":[0,700,700,300,false],
         "part_1":[300,450,200,5,false],
         "part_2":[100,100,200,5,false],
         "part_3":[800,450,200,5,false],
         "lower_floor":[700,830,1500,60,false]
-        }
-      ],
+        },
 
-      "enemies": [{
-        "minion":[700, 500, 1, 2],
-        "minion2":[900, 500, 1, 2],
-        "hussein":[1200, 500, 1, 2]
+      "enemies": {
+        "ExplosiveMinion":{
+          "Bob":[700, 500, 1, 2],
+          "Steve":[900, 500, 1, 2],
+          "John":[1100, 500, 1, 2]
+          },
+        "RangedMinion":{
+          "Bobby":[800, 500, 1, 2],
+          "Stevey":[1000, 500, 1, 2],
+          "Johnny":[1200, 500, 1, 2]
+          },
+        "MeleeMinion":{
+          "Bob":[200, 500, 1, 2],
+          "Steve":[300, 500, 1, 2],
+          "John":[400, 500, 1, 2]
+          }
         }
-      ]
-
       },
 
   "Level_2":
