@@ -145,7 +145,7 @@ class Projectile(pygame.sprite.Sprite):
             self.kill()
 #to be added - SMART enemy class / enemy subclasses
 class Enemy(pygame.sprite.Sprite):
-    def __init__(self, posx, posy, speed):
+    def __init__(self, posx, posy, sentryspeed, attackspeed):
         super(Enemy,self).__init__()
         self.image = pygame.Surface((30,50))
         self.image.fill((255,50,50))
@@ -155,7 +155,10 @@ class Enemy(pygame.sprite.Sprite):
         self.gravity = commonGravity
         self.sentrymode = True
         self.sentrytoggle = True
-        self.sentryspeed = speed
+        self.sentryspeed = sentryspeed
+        self.attacktolerance = 280
+        self.attackmode = False
+        self.attackspeed = attackspeed
 
     def update(self):
         if self.gravitystate:
@@ -215,6 +218,25 @@ class Enemy(pygame.sprite.Sprite):
                 self.rect.move_ip(self.sentryspeed,0)
             else:
                 self.rect.move_ip(-self.sentryspeed,0)
+
+        for enemy in enemies_group:
+            enemy_coord = pygame.Vector2(enemy.rect.center)
+            player_coord = pygame.Vector2(player.rect.center)
+            #if abs(enemy.rect.x - player.rect.x) < self.attacktolerance and abs(enemy.rect.y - player.rect.y) < self.attacktolerance:
+            if enemy_coord.distance_to(player_coord) < self.attacktolerance:
+                enemy.attackmode = True
+                enemy.sentrymode = False
+            if enemy_coord.distance_to(player_coord) > self.attacktolerance:
+                enemy.attackmode = False
+                enemy.sentrymode = True
+
+        if self.attackmode and not self.sentrymode:
+            distance = player.rect.center[0] - self.rect.center[0]
+            if distance > 0:
+                self.rect.move_ip(self.attackspeed,0)
+            if distance < 0:
+                self.rect.move_ip(-self.attackspeed,0)
+
 
 class Minion(Enemy):
     def __init__(self, width, height, human_form):
