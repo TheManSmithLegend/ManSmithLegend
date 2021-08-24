@@ -9,7 +9,7 @@ sentrymode_time = pygame.USEREVENT + 0
 
 pygame.time.set_timer(sentrymode_time, 3000)
 jumpPower = 30
-commonGravity = 4
+commonGravity = 2.5
 camera_right = False
 camera_left = False
 levelSelected = "Level_1"
@@ -65,23 +65,35 @@ class Player(pygame.sprite.Sprite):
         self.image = pygame.Surface((50,70))
         self.image.fill((255,255,255))
         self.rect = self.image.get_rect(center = (screen_width/4,50))
-        self.facing = 1
+        #Jumping Vars
         self.gravitystate = False
         self.jump_vel = jumpPower
+        #Falling Vars
+        self.fallstate = True
+        self.falling = False
         self.gravity = commonGravity
-        self.jetpack = False
+        #Jetpack Vars
+        self.jetstate = False
+        self.startingthrust = 2
+        self.optimalthrust = 6
+        #Moving Vars
         self.moving = False
         self.Rbasemove = 5
         self.Lbasemove = 5
+        self.facing = 1
+
     def update(self, pressed_keys):
         global jumpPower
-        #jumping mechanics
-        if self.gravitystate:
+        #Jumping mechanics
+        if self.gravitystate and not self.falling:
+            self.fallstate = False
             self.rect.y -= self.jump_vel
             if self.jump_vel <= -jumpPower:
                 self.jump_vel = -jumpPower
             else:
                 self.jump_vel -= 2
+        elif not self.jetstate:
+            self.fallstate = True
 
         #Collisions
         player_gdcollisions = pygame.sprite.spritecollide(player, ground_group, dokill = False, collided = None)
@@ -119,12 +131,26 @@ class Player(pygame.sprite.Sprite):
             self.Lbasemove = 6
 
         #Gravity when in the state of freefall and not jumping
-        if not player_gdcollisions and self.gravitystate == False:
+        if not player_gdcollisions and self.fallstate:
+            self.falling = True
             self.rect.y += self.gravity
             if self.gravity >= 28:
                 self.gravity = 28
             else:
-                self.gravity += 4
+                self.gravity += 2
+        else:
+            self.falling = False
+
+        #Jetpack when gravity and jumping is not in effect
+        if pressed_keys[K_j]:
+            self.jetstate = True
+            self.fallstate = False
+            self.rect.move_ip(0,-self.startingthrust)
+            if self.startingthrust < self.optimalthrust:
+                self.startingthrust += 0.2
+        else:
+            self.jetstate = False
+            self.startingthrust = self.optimalthrust/3
 
     def player_pos(self):
         return self.rect.center
@@ -134,16 +160,45 @@ class Projectile(pygame.sprite.Sprite):
     def __init__(self, posx, posy, facing):
         super(Projectile,self).__init__()
         self.image = pygame.Surface((8,8))
-        self.image.fill((255,255,0))
+        self.image.fill((self.colour))
         self.rect = self.image.get_rect(center = (posx, posy))
-        self.vel = 10
         self.facing = facing
+        self.x_vel = 0
+        self.y_vel = 0
+        self.y_grav = 0
+        self.damage = 0
+
+    def update(self):
+        self.rect.x += self.x_vel * self.facing
+        self.rect.y -= self.y_vel
+        self.y_vel -= self.y_grav
+        if self.rect.y > screen_height:
+            self.kill()
+
+class ExplosiveCoke(Projectile):
+    def __init__(self, posx, posy, facing):
+        self.colour = (0,255,0)
+        super().__init__(posx, posy, facing)
+        self.x_vel = 8
+        self.y_vel = 10
+        self.y_grav = 0.4
         self.damage = 10
 
     def update(self):
-        self.rect.x += self.vel * self.facing
-        if self.rect.x > screen_width or self.rect.x < 0:
-            self.kill()
+        super().update()
+
+class CokeBlade(Projectile):
+    def __init__(self, posx, posy, facing):
+        self.colour = (0,0,255)
+        super().__init__(posx, posy, facing)
+        self.x_vel = 16
+        self.y_vel = 0
+        self.y_grav = 0.05
+        self.damage = 2
+
+    def update(self):
+        super().update()
+
 #to be added - SMART enemy class / enemy subclasses
 class StandardMinion(pygame.sprite.Sprite):
     def __init__(self, posx, posy, sentryspeed, attackspeed):
@@ -192,27 +247,10 @@ class StandardMinion(pygame.sprite.Sprite):
             else:
                 self.gravity += 4
 
-        if player.rect.center[0] >= ((screen_width+screen_width/2)/2):
-            self.movingr = True
-            self.movingl = False
-        if player.rect.center[0]<= ((screen_width/2)/2):
-            self.movingl = True
-            self.movingr = False
-        if self.movingr:
+        if camera_right:
             self.rect.move_ip(-3,0)
-            camera_right = True
-            camera_left  = False
-        if self.movingl:
+        if camera_left:
             self.rect.move_ip(3,0)
-            camera_left = True
-            camera_right = False
-        if abs(player.rect.center[0]-screen_width/2) <= 20:
-            self.movingr = False
-            self.movingl = False
-            camera_left = False
-            camera_right = False
-            player.Rbasemove = 5
-            player.Lbasemove = 5
 
         if self.sentrymode:
             if self.sentrytoggle:
@@ -242,11 +280,14 @@ class StandardMinion(pygame.sprite.Sprite):
 class ExplosiveMinion(StandardMinion):
     def __init__(self, posx, posy, sentryspeed, attackspeed):
         super().__init__(posx, posy, sentryspeed, attackspeed)
+        self.expl_proximity = 300
+        self.expl_range = 400
 
     def update(self):
         super().update()
         if abs(self.rect.x-player.rect.x) < 100:
-            print("BOOM!")
+            #print("BOOM!")
+            pass
 
 class RangedMinion(StandardMinion):
     def __init__(self, posx, posy, sentryspeed, attackspeed):
@@ -255,7 +296,8 @@ class RangedMinion(StandardMinion):
     def update(self):
         super().update()
         if abs(self.rect.x-player.rect.x) < 100:
-            print("FIRE!")
+            #print("FIRE!")
+            pass
 
 class MeleeMinion(StandardMinion):
     def __init__(self, posx, posy, sentryspeed, attackspeed):
@@ -264,8 +306,8 @@ class MeleeMinion(StandardMinion):
     def update(self):
         super().update()
         if abs(self.rect.x-player.rect.x) < 100:
-            print("HAHA!")
-
+            #print("HAHA!")
+            pass
 
 def drawGameWindow():
     screen.fill((0,0,0))
@@ -316,7 +358,11 @@ while run:
             if event.key == K_r:
                 player.rect.center = (140,50)
             if event.key == K_f:
-                projectile_group.add(Projectile(player.rect.x+25, player.rect.y+30, player.facing))
+                projectile_group.add(CokeBlade(player.rect.x+25, player.rect.y+30, player.facing))
+            if event.key == K_g:
+                projectile_group.add(ExplosiveCoke(player.rect.x+25, player.rect.y+30, player.facing))
+            if event.key == K_j:
+                player.gravitystate = False
         if event.type == sentrymode_time:
             for enemy in enemies_group:
                 enemy.sentrytoggle = not enemy.sentrytoggle
