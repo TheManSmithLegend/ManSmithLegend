@@ -3,7 +3,7 @@ from pygame.locals import *
 pygame.init()
 cwd = os.getcwd()
 screen_width, screen_height = 1542, 880
-screen = pygame.display.set_mode((screen_width, screen_height))
+screen = pygame.display.set_mode((screen_width, screen_height),RESIZABLE)
 fps = pygame.time.Clock()
 sentrymode_time = pygame.USEREVENT + 0
 
@@ -12,6 +12,8 @@ jumpPower = 30
 commonGravity = 2.5
 camera_right = False
 camera_left = False
+camera_up = False
+camera_down = False
 levelSelected = "Level_1"
 
 class stars(pygame.sprite.Sprite):
@@ -25,6 +27,9 @@ class stars(pygame.sprite.Sprite):
         if self.rect.x <= 0:
             self.kill()
 
+
+#GROUND AND CAMERA MOVEMENT
+
 class ground(pygame.sprite.Sprite):
     def __init__(self,gd_locx,gd_locy,gd_sizex,gd_sizey,motility):
         super(ground,self).__init__()
@@ -33,16 +38,24 @@ class ground(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(midleft = (gd_locx,gd_locy))
         self.movingr = False
         self.movingl = False
+        self.movingu = False
+        self.movingd = False
         self.motile = motility
     def update(self, pressed_keys):
-        global camera_right, camera_left
+        global camera_right, camera_left, camera_up, camera_down
         #Camera View Mechanics
-        if player.rect.center[0] >= ((screen_width+screen_width/2)/2):
+        if player.rect.center[0] >= (current_hsw+(current_hsw/2-current_hsw/4)):
             self.movingr = True
             self.movingl = False
-        if player.rect.center[0]<= ((screen_width/2)/2):
+        if player.rect.center[0]<= (current_hsw-(current_hsw/2-current_hsw/4)):
             self.movingl = True
             self.movingr = False
+        if player.rect.center[1] >= (current_hsh+(current_sh*0.170)):
+            self.movingd = True
+            self.movingu = False
+        if player.rect.center[1] <= (current_hsh-(current_sh*0.091)):
+            self.movingu = True
+            self.movingd = False
         if self.movingr:
             self.rect.move_ip(-3,0)
             camera_right = True
@@ -51,13 +64,30 @@ class ground(pygame.sprite.Sprite):
             self.rect.move_ip(3,0)
             camera_left = True
             camera_right = False
-        if abs(player.rect.center[0]-screen_width/2) <= 20:
+        if self.movingu and not player.gravitystate:
+            self.rect.move_ip(0,4)
+            camera_up = True
+            camera_down = False
+        if self.movingd:
+            self.rect.move_ip(0,-4)
+            camera_down = True
+            camera_up = False
+        if abs(player.rect.center[0]-current_hsw) <= (current_sw*0.013):
             self.movingr = False
             self.movingl = False
             camera_left = False
             camera_right = False
             player.Rbasemove = 5
             player.Lbasemove = 5
+        if player.rect.center[1]-current_hsh <= (current_sh*0.170):
+            self.movingd = False
+            camera_down = False
+        if player.rect.center[1]-current_hsh >= -(current_sh*0.091):
+            self.movingu = False
+            camera_up = False
+
+
+#PLAYER
 
 class Player(pygame.sprite.Sprite):
     def __init__(self):
@@ -94,24 +124,22 @@ class Player(pygame.sprite.Sprite):
                 self.jump_vel -= 2
         elif not self.jetstate:
             self.fallstate = True
-
         #Collisions
         player_gdcollisions = pygame.sprite.spritecollide(player, ground_group, dokill = False, collided = None)
         for ground in player_gdcollisions:
-            if abs(self.rect.bottom-ground.rect.top) <= 30:
+            if abs(self.rect.bottom-ground.rect.top) <= 40:
                 self.rect.bottom = ground.rect.top + 1
                 self.jump_vel = jumpPower
                 self.gravitystate = False
                 self.gravity = 4
-            elif abs(self.rect.top-ground.rect.bottom) <= 30:
+            elif abs(self.rect.top-ground.rect.bottom) <= 40:
                 self.rect.top = ground.rect.bottom
                 self.jump_vel = jumpPower
                 self.gravitystate = False
-            elif abs(self.rect.left-ground.rect.right) <= 20:
+            elif abs(self.rect.left-ground.rect.right) <= 30:
                 self.rect.left = ground.rect.right
-            elif abs(self.rect.right-ground.rect.left) <= 20:
+            elif abs(self.rect.right-ground.rect.left) <= 30:
                 self.rect.right = ground.rect.left
-
         #Controls and Camera View
         if pressed_keys[K_d]:
             self.rect.move_ip(self.Rbasemove,0)
@@ -119,17 +147,19 @@ class Player(pygame.sprite.Sprite):
         if pressed_keys[K_a]:
             self.rect.move_ip(-self.Lbasemove,0)
             self.facing = -1
-
         #speed of character is changed based on the camera movement
         if camera_right:
             self.rect.move_ip(-3,0)
-            self.Rbasemove = 6
+            self.Rbasemove = 4
             self.Lbasemove = 4
         if camera_left:
             self.rect.move_ip(3,0)
             self.Rbasemove = 4
-            self.Lbasemove = 6
-
+            self.Lbasemove = 4
+        if camera_up and not self.gravitystate:
+            self.rect.move_ip(0,4)
+        if camera_down:
+            self.rect.move_ip(0,-4)
         #Gravity when in the state of freefall and not jumping
         if not player_gdcollisions and self.fallstate:
             self.falling = True
@@ -140,7 +170,6 @@ class Player(pygame.sprite.Sprite):
                 self.gravity += 2
         else:
             self.falling = False
-
         #Jetpack when gravity and jumping is not in effect
         if pressed_keys[K_j]:
             self.jetstate = True
@@ -151,10 +180,11 @@ class Player(pygame.sprite.Sprite):
         else:
             self.jetstate = False
             self.startingthrust = self.optimalthrust/3
-
     def player_pos(self):
         return self.rect.center
 
+
+#PROJECTILES
 
 class Projectile(pygame.sprite.Sprite):
     def __init__(self, posx, posy, facing):
@@ -199,6 +229,9 @@ class CokeBlade(Projectile):
     def update(self):
         super().update()
 
+
+#MINIONS:
+
 #to be added - SMART enemy class / enemy subclasses
 class StandardMinion(pygame.sprite.Sprite):
     def __init__(self, posx, posy, sentryspeed, attackspeed):
@@ -223,7 +256,6 @@ class StandardMinion(pygame.sprite.Sprite):
                 self.jump_vel = -jumpPower
             else:
                 self.jump_vel -= 2
-
         enemy_gdcollisions = pygame.sprite.spritecollide(self, ground_group, dokill = False, collided = None)
         for ground in enemy_gdcollisions:
             if abs(self.rect.bottom-ground.rect.top) <= 30:
@@ -239,25 +271,25 @@ class StandardMinion(pygame.sprite.Sprite):
                 self.rect.left = ground.rect.right
             elif abs(self.rect.right-ground.rect.left) <= 20:
                 self.rect.right = ground.rect.left
-
         if not enemy_gdcollisions and self.gravitystate == False:
             self.rect.y += self.gravity
             if self.gravity >= 28:
                 self.gravity = 28
             else:
                 self.gravity += 4
-
         if camera_right:
             self.rect.move_ip(-3,0)
         if camera_left:
             self.rect.move_ip(3,0)
-
+        if camera_up and not player.gravitystate:
+            self.rect.move_ip(0,4)
+        if camera_down:
+            self.rect.move_ip(0,-4)
         if self.sentrymode:
             if self.sentrytoggle:
                 self.rect.move_ip(self.sentryspeed,0)
             else:
                 self.rect.move_ip(-self.sentryspeed,0)
-
         for enemy in enemies_group:
             enemy_coord = pygame.Vector2(enemy.rect.center)
             player_coord = pygame.Vector2(player.rect.center)
@@ -268,7 +300,6 @@ class StandardMinion(pygame.sprite.Sprite):
             if enemy_coord.distance_to(player_coord) > self.attacktolerance:
                 enemy.attackmode = False
                 enemy.sentrymode = True
-
         if self.attackmode and not self.sentrymode:
             distance = player.rect.center[0] - self.rect.center[0]
             if distance > 0:
@@ -309,6 +340,9 @@ class MeleeMinion(StandardMinion):
             #print("HAHA!")
             pass
 
+
+
+#DRAWING FUNCTION
 def drawGameWindow():
     screen.fill((0,0,0))
     projectile_group.draw(screen)
@@ -323,11 +357,18 @@ def drawGameWindow():
     enemies_group.update()
     pygame.display.update()
 
+
+
+#PYGAME SPRITES
 ground_group = pygame.sprite.Group()
 stars_group = pygame.sprite.Group()
 projectile_group = pygame.sprite.Group()
 enemies_group = pygame.sprite.Group()
 
+
+
+
+#JSON ACCESS
 accessLevels = os.path.join(cwd, "data\levels.json")
 with open(accessLevels) as levels_file:
     levelData = json.load(levels_file)
@@ -342,14 +383,21 @@ with open(accessLevels) as levels_file:
     for spawn in levelData[levelSelected]['enemies']["MeleeMinion"]:
         enemies_group.add(MeleeMinion(*(tuple(levelData[levelSelected]['enemies']["MeleeMinion"][spawn]))))
 
+
+
 player = Player()
 stars_timer = 0
 run = True
+
+
 while run:
+    current_sw, current_sh = screen.get_size()
+    current_hsw, current_hsh = current_sw/2, current_sh/2
     pygame.init()
     timer = pygame.time.get_ticks()
     pressed_keys = pygame.key.get_pressed()
     for event in pygame.event.get():
+
         if event.type == KEYDOWN:
             if event.key == K_ESCAPE:
                 run = False
