@@ -6,8 +6,12 @@ screen_width, screen_height = 1542, 880
 screen = pygame.display.set_mode((screen_width, screen_height),RESIZABLE)
 fps = pygame.time.Clock()
 sentrymode_time = pygame.USEREVENT + 0
+quickground_time = pygame.USEREVENT + 1
+slowground_time = pygame.USEREVENT + 2
 
-pygame.time.set_timer(sentrymode_time, 3000)
+pygame.time.set_timer(sentrymode_time, 3200)
+pygame.time.set_timer(quickground_time, 4200)
+pygame.time.set_timer(slowground_time, 7500)
 jumpPower = 30
 commonGravity = 2.5
 camera_right = False
@@ -31,16 +35,22 @@ class stars(pygame.sprite.Sprite):
 #GROUND AND CAMERA MOVEMENT
 
 class ground(pygame.sprite.Sprite):
-    def __init__(self,gd_locx,gd_locy,gd_sizex,gd_sizey,motility):
+    def __init__(self,gd_locx,gd_locy,gd_sizex,gd_sizey,motility,gd_movex,gd_movey,quickness):
         super(ground,self).__init__()
         self.image = pygame.Surface((gd_sizex, gd_sizey))
         self.image.fill((255,255,255))
         self.rect = self.image.get_rect(midleft = (gd_locx,gd_locy))
+        #Cam Vars
         self.movingr = False
         self.movingl = False
         self.movingu = False
         self.movingd = False
+        #Move Vars
         self.motile = motility
+        self.quickground = quickness
+        self.movetoggle = True
+        self.groundmovex = gd_movex
+        self.groundmovey = gd_movey
     def update(self, pressed_keys):
         global camera_right, camera_left, camera_up, camera_down
         #Camera View Mechanics
@@ -85,7 +95,12 @@ class ground(pygame.sprite.Sprite):
         if player.rect.center[1]-current_hsh >= -(current_sh*0.091):
             self.movingu = False
             camera_up = False
-
+        #Ground Movement Mechanics
+        if self.motile:
+            if self.movetoggle:
+                self.rect.move_ip(self.groundmovex, self.groundmovey)
+            elif not self.movetoggle:
+                self.rect.move_ip(-self.groundmovex, -self.groundmovey)
 
 #PLAYER
 
@@ -132,6 +147,11 @@ class Player(pygame.sprite.Sprite):
                 self.jump_vel = jumpPower
                 self.gravitystate = False
                 self.gravity = 4
+                if ground.motile == True:
+                    if ground.movetoggle:
+                        self.rect.move_ip(ground.groundmovex, ground.groundmovey)
+                    else:
+                        self.rect.move_ip(-ground.groundmovex, -ground.groundmovey)
             elif abs(self.rect.top-ground.rect.bottom) <= 40:
                 self.rect.top = ground.rect.bottom
                 self.jump_vel = jumpPower
@@ -393,7 +413,6 @@ run = True
 while run:
     current_sw, current_sh = screen.get_size()
     current_hsw, current_hsh = current_sw/2, current_sh/2
-    pygame.init()
     timer = pygame.time.get_ticks()
     pressed_keys = pygame.key.get_pressed()
     for event in pygame.event.get():
@@ -414,6 +433,14 @@ while run:
         if event.type == sentrymode_time:
             for enemy in enemies_group:
                 enemy.sentrytoggle = not enemy.sentrytoggle
+        if event.type == quickground_time:
+            for ground in ground_group:
+                if ground.quickground:
+                    ground.movetoggle = not ground.movetoggle
+        if event.type == slowground_time:
+            for ground in ground_group:
+                if not ground.quickground:
+                    ground.movetoggle = not ground.movetoggle
     if timer-stars_timer >= 100:
         for x in range(1,8):
             y = random.randint(0,880)

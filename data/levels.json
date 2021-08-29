@@ -2,11 +2,11 @@
   "Level_1": {
 
       "structures": {
-        "main_floor":[0,700,700,300,false],
-        "part_1":[300,450,200,5,false],
-        "part_2":[100,100,200,5,false],
-        "part_3":[800,450,200,5,false],
-        "lower_floor":[700,830,1500,60,false]
+        "main_floor":[0,700,700,300,false,0,0,0],
+        "part_1":[300,450,200,5,true,1,-2,true],
+        "part_2":[100,100,200,5,false,0,0,0],
+        "part_3":[800,450,200,5,false,0,0,0],
+        "lower_floor":[700,830,1500,60,false,0,0,0]
         },
 
       "enemies": {
