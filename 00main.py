@@ -20,6 +20,8 @@ camera_up = False
 camera_down = False
 levelSelected = "Level_1"
 
+#BACKGROUND STAR VISUALS
+
 class stars(pygame.sprite.Sprite):
     def __init__(self,x):
         super(stars,self).__init__()
@@ -30,7 +32,6 @@ class stars(pygame.sprite.Sprite):
         self.rect.x -= 4
         if self.rect.x <= 0:
             self.kill()
-
 
 #GROUND AND CAMERA MOVEMENT
 
@@ -54,16 +55,16 @@ class ground(pygame.sprite.Sprite):
     def update(self, pressed_keys):
         global camera_right, camera_left, camera_up, camera_down
         #Camera View Mechanics
-        if player.rect.center[0] >= (current_hsw+(current_hsw/2-current_hsw/4)):
+        if player.rect.center[0] >= cam_rlimit:
             self.movingr = True
             self.movingl = False
-        if player.rect.center[0]<= (current_hsw-(current_hsw/2-current_hsw/4)):
+        if player.rect.center[0]<= cam_llimit:
             self.movingl = True
             self.movingr = False
-        if player.rect.center[1] >= (current_hsh+(current_sh*0.170)):
+        if player.rect.center[1] >= cam_dlimit:
             self.movingd = True
             self.movingu = False
-        if player.rect.center[1] <= (current_hsh-(current_sh*0.091)):
+        if player.rect.center[1] <= cam_ulimit:
             self.movingu = True
             self.movingd = False
         if self.movingr:
@@ -82,17 +83,17 @@ class ground(pygame.sprite.Sprite):
             self.rect.move_ip(0,-4)
             camera_down = True
             camera_up = False
-        if abs(player.rect.center[0]-current_hsw) <= (current_sw*0.013):
+        if abs(player.rect.center[0]-current_hsw) <= ratio1:
             self.movingr = False
             self.movingl = False
             camera_left = False
             camera_right = False
             player.Rbasemove = 5
             player.Lbasemove = 5
-        if player.rect.center[1]-current_hsh <= (current_sh*0.170):
+        if player.rect.center[1]-current_hsh <= 10:
             self.movingd = False
             camera_down = False
-        if player.rect.center[1]-current_hsh >= -(current_sh*0.091):
+        if player.rect.center[1]-current_hsh >= -10:
             self.movingu = False
             camera_up = False
         #Ground Movement Mechanics
@@ -130,7 +131,7 @@ class Player(pygame.sprite.Sprite):
     def update(self, pressed_keys):
         global jumpPower
         #Jumping mechanics
-        if self.gravitystate and not self.falling:
+        if self.gravitystate and not self.falling and not self.jetstate:
             self.fallstate = False
             self.rect.y -= self.jump_vel
             if self.jump_vel <= -jumpPower:
@@ -156,6 +157,8 @@ class Player(pygame.sprite.Sprite):
                 self.rect.top = ground.rect.bottom
                 self.jump_vel = jumpPower
                 self.gravitystate = False
+                if ground.motile == True:
+                    self.rect.move_ip(0, 5)
             elif abs(self.rect.left-ground.rect.right) <= 30:
                 self.rect.left = ground.rect.right
             elif abs(self.rect.right-ground.rect.left) <= 30:
@@ -377,16 +380,26 @@ def drawGameWindow():
     enemies_group.update()
     pygame.display.update()
 
-
+#TESTING CAMERA SETUP
+def cameraConfig():
+    global cam_rlimit, cam_llimit, cam_dlimit, cam_ulimit, current_hsw, current_hsh, ratio1
+    current_sw, current_sh = screen.get_size()
+    current_hsw, current_hsh = current_sw/2, current_sh/2
+    cam_rlimit = current_hsw+(current_hsw/2-current_hsw/4)
+    cam_llimit = current_hsw-(current_hsw/2-current_hsw/4)
+    cam_dlimit = current_hsh+(current_sh*0.170)
+    cam_ulimit = current_hsh-(current_sh*0.091)
+    ratio1 = current_sw*0.013
+    ratio2 = current_sh*0.170
+    ratio3 = current_sh*0.091
+    cam_umid = int(current_hsh - ratio3)
+    cam_dmid = current_hsh + ratio2
 
 #PYGAME SPRITES
 ground_group = pygame.sprite.Group()
 stars_group = pygame.sprite.Group()
 projectile_group = pygame.sprite.Group()
 enemies_group = pygame.sprite.Group()
-
-
-
 
 #JSON ACCESS
 accessLevels = os.path.join(cwd, "data\levels.json")
@@ -409,14 +422,11 @@ player = Player()
 stars_timer = 0
 run = True
 
-
 while run:
-    current_sw, current_sh = screen.get_size()
-    current_hsw, current_hsh = current_sw/2, current_sh/2
     timer = pygame.time.get_ticks()
     pressed_keys = pygame.key.get_pressed()
+    cameraConfig()
     for event in pygame.event.get():
-
         if event.type == KEYDOWN:
             if event.key == K_ESCAPE:
                 run = False
