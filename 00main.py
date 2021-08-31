@@ -115,7 +115,7 @@ class Player(pygame.sprite.Sprite):
         self.gravitystate = False
         self.jump_vel = jumpPower
         #Falling Vars
-        self.fallstate = True
+        self.falltoggle = True
         self.falling = False
         self.gravity = commonGravity
         #Jetpack Vars
@@ -132,14 +132,15 @@ class Player(pygame.sprite.Sprite):
         global jumpPower
         #Jumping mechanics
         if self.gravitystate and not self.falling and not self.jetstate:
-            self.fallstate = False
+            self.falltoggle = False
+            self.jetstate = False
             self.rect.y -= self.jump_vel
             if self.jump_vel <= -jumpPower:
                 self.jump_vel = -jumpPower
             else:
                 self.jump_vel -= 2
         elif not self.jetstate:
-            self.fallstate = True
+            self.falltoggle = True
         #Collisions
         player_gdcollisions = pygame.sprite.spritecollide(player, ground_group, dokill = False, collided = None)
         for ground in player_gdcollisions:
@@ -184,7 +185,7 @@ class Player(pygame.sprite.Sprite):
         if camera_down:
             self.rect.move_ip(0,-4)
         #Gravity when in the state of freefall and not jumping
-        if not player_gdcollisions and self.fallstate:
+        if not player_gdcollisions and self.falltoggle:
             self.falling = True
             self.rect.y += self.gravity
             if self.gravity >= 28:
@@ -196,7 +197,8 @@ class Player(pygame.sprite.Sprite):
         #Jetpack when gravity and jumping is not in effect
         if pressed_keys[K_j]:
             self.jetstate = True
-            self.fallstate = False
+            self.falltoggle = False
+            self.gravitystate = False
             self.rect.move_ip(0,-self.startingthrust)
             if self.startingthrust < self.optimalthrust:
                 self.startingthrust += 0.2
@@ -252,15 +254,19 @@ class CokeBlade(Projectile):
     def update(self):
         super().update()
 
-
 #MINIONS:
 
 #to be added - SMART enemy class / enemy subclasses
 class StandardMinion(pygame.sprite.Sprite):
     def __init__(self, posx, posy, sentryspeed, attackspeed):
         super(StandardMinion,self).__init__()
-        self.image = pygame.Surface((30,50))
-        self.image.fill((255,50,50))
+        self.sentrymode_imglist = []
+        self.index = 0
+        directory = os.path.join(cwd, "assets\EnemySample1")
+        for spritename in os.listdir(directory):
+            i = os.path.join(directory, spritename)
+            self.sentrymode_imglist.append(pygame.transform.scale(pygame.image.load(i), (60, 120)))
+        self.image = self.sentrymode_imglist[0]
         self.rect = self.image.get_rect(center = (posx, posy))
         self.gravitystate = False
         self.jump_vel = jumpPower
@@ -273,12 +279,36 @@ class StandardMinion(pygame.sprite.Sprite):
         self.attackspeed = attackspeed
 
     def update(self):
+        #STANDARD ANIMATION
+        self.image = self.sentrymode_imglist[self.index]
+        if self.index != len(self.sentrymode_imglist)-1:
+            self.index += 1
+        else:
+            self.index = 0
+        #ACTION MECHANICS
         if self.gravitystate:
             self.rect.y -= self.jump_vel
             if self.jump_vel <= -jumpPower:
                 self.jump_vel = -jumpPower
             else:
                 self.jump_vel -= 2
+        enemy_enemycollisions = pygame.sprite.spritecollide(self, enemies_group, dokill = False, collided = None)
+
+        for enemy in enemy_enemycollisions:
+            if abs(self.rect.bottom-enemy.rect.top) <= 30:
+                self.rect.bottom = enemy.rect.top + 1
+                self.jump_vel = jumpPower
+                self.gravitystate = False
+                self.gravity = 4
+            elif abs(self.rect.top-enemy.rect.bottom) <= 30:
+                self.rect.top = enemy.rect.bottom
+                self.jump_vel = jumpPower
+                self.gravitystate = False
+            elif abs(self.rect.left-enemy.rect.right) <= 10:
+                self.rect.left = enemy.rect.right
+            elif abs(self.rect.right-enemy.rect.left) <= 10:
+                self.rect.right = enemy.rect.left
+
         enemy_gdcollisions = pygame.sprite.spritecollide(self, ground_group, dokill = False, collided = None)
         for ground in enemy_gdcollisions:
             if abs(self.rect.bottom-ground.rect.top) <= 30:
@@ -316,7 +346,6 @@ class StandardMinion(pygame.sprite.Sprite):
         for enemy in enemies_group:
             enemy_coord = pygame.Vector2(enemy.rect.center)
             player_coord = pygame.Vector2(player.rect.center)
-            #if abs(enemy.rect.x - player.rect.x) < self.attacktolerance and abs(enemy.rect.y - player.rect.y) < self.attacktolerance:
             if enemy_coord.distance_to(player_coord) < self.attacktolerance:
                 enemy.attackmode = True
                 enemy.sentrymode = False
@@ -362,8 +391,6 @@ class MeleeMinion(StandardMinion):
         if abs(self.rect.x-player.rect.x) < 100:
             #print("HAHA!")
             pass
-
-
 
 #DRAWING FUNCTION
 def drawGameWindow():
@@ -430,7 +457,7 @@ while run:
         if event.type == KEYDOWN:
             if event.key == K_ESCAPE:
                 run = False
-            if event.key == K_SPACE:
+            if event.key == K_SPACE and not player.jetstate:
                 player.gravitystate = True
             if event.key == K_r:
                 player.rect.center = (140,50)
