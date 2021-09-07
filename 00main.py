@@ -1,5 +1,6 @@
-import pygame, sys, random, json, os
+import pygame, sys, random, json, os, math
 from pygame.locals import *
+from math import *
 pygame.init()
 cwd = os.getcwd()
 screen_width, screen_height = 1542, 880
@@ -269,6 +270,8 @@ class StandardMinion(pygame.sprite.Sprite):
         self.image = self.sentrymode_imglist[0]
         self.rect = self.image.get_rect(center = (posx, posy))
         self.gravitystate = False
+        self.falltoggle = True
+        self.falling = False
         self.jump_vel = jumpPower
         self.gravity = commonGravity
         self.sentrymode = True
@@ -276,6 +279,7 @@ class StandardMinion(pygame.sprite.Sprite):
         self.sentryspeed = sentryspeed
         self.attacktolerance = 280
         self.attackmode = False
+        self.attacklocked = False
         self.attackspeed = attackspeed
 
     def update(self):
@@ -286,14 +290,16 @@ class StandardMinion(pygame.sprite.Sprite):
         else:
             self.index = 0
         #ACTION MECHANICS
-        if self.gravitystate:
+        if self.gravitystate and not self.falling:
+            self.falltoggle = False
             self.rect.y -= self.jump_vel
             if self.jump_vel <= -jumpPower:
                 self.jump_vel = -jumpPower
             else:
                 self.jump_vel -= 2
+        elif not self.attackmode:
+            self.falltoggle = True
         enemy_enemycollisions = pygame.sprite.spritecollide(self, enemies_group, dokill = False, collided = None)
-
         for enemy in enemy_enemycollisions:
             if abs(self.rect.bottom-enemy.rect.top) <= 30:
                 self.rect.bottom = enemy.rect.top + 1
@@ -324,7 +330,7 @@ class StandardMinion(pygame.sprite.Sprite):
                 self.rect.left = ground.rect.right
             elif abs(self.rect.right-ground.rect.left) <= 20:
                 self.rect.right = ground.rect.left
-        if not enemy_gdcollisions and self.gravitystate == False:
+        if not enemy_gdcollisions and self.falltoggle and not self.attacklocked:
             self.rect.y += self.gravity
             if self.gravity >= 28:
                 self.gravity = 28
@@ -338,7 +344,7 @@ class StandardMinion(pygame.sprite.Sprite):
             self.rect.move_ip(0,4)
         if camera_down:
             self.rect.move_ip(0,-4)
-        if self.sentrymode:
+        if self.sentrymode and not self.attacklocked:
             if self.sentrytoggle:
                 self.rect.move_ip(self.sentryspeed,0)
             else:
@@ -352,25 +358,36 @@ class StandardMinion(pygame.sprite.Sprite):
             if enemy_coord.distance_to(player_coord) > self.attacktolerance:
                 enemy.attackmode = False
                 enemy.sentrymode = True
-        if self.attackmode and not self.sentrymode:
-            distance = player.rect.center[0] - self.rect.center[0]
-            if distance > 0:
-                self.rect.move_ip(self.attackspeed,0)
-            if distance < 0:
-                self.rect.move_ip(-self.attackspeed,0)
-
 
 class ExplosiveMinion(StandardMinion):
     def __init__(self, posx, posy, sentryspeed, attackspeed):
         super().__init__(posx, posy, sentryspeed, attackspeed)
-        self.expl_proximity = 300
-        self.expl_range = 400
+        self.height = 0
+        self.height_limit = 405
+        self.flightspeed_y = 5
+        self.target_acquired = None
+        self.firespeed = 35
 
     def update(self):
         super().update()
-        if abs(self.rect.x-player.rect.x) < 100:
-            #print("BOOM!")
-            pass
+        enemy_gdcollisions = pygame.sprite.spritecollide(self, ground_group, dokill = False, collided = None)
+        enemy_playercollisions = pygame.sprite.spritecollide(player, enemies_group, dokill = False, collided = None)
+        if self.attackmode and not self.sentrymode:
+            self.attacklocked = True
+        if self.attacklocked:
+            if self.height < self.height_limit:
+                self.height += self.flightspeed_y
+                self.rect.y -= self.flightspeed_y
+            else:
+                if self.target_acquired is None:
+                    self.target_acquired = findAngle(self.rect.x,self.rect.y,player.rect.x,player.rect.y)
+                self.rect.x += math.cos(self.target_acquired) * self.firespeed
+                self.rect.y += math.sin(self.target_acquired) * self.firespeed
+                if enemy_gdcollisions or enemy_playercollisions:
+                    self.kill()
+
+
+
 
 class RangedMinion(StandardMinion):
     def __init__(self, posx, posy, sentryspeed, attackspeed):
@@ -388,9 +405,18 @@ class MeleeMinion(StandardMinion):
 
     def update(self):
         super().update()
-        if abs(self.rect.x-player.rect.x) < 100:
-            #print("HAHA!")
-            pass
+        if self.attackmode and not self.sentrymode:
+            distance = player.rect.center[0] - self.rect.center[0]
+            if distance > 0:
+                self.rect.move_ip(self.attackspeed,0)
+            if distance < 0:
+                self.rect.move_ip(-self.attackspeed,0)
+
+#ANGLE FINDER
+def findAngle(x,y,x2,y2):
+    deltaX = x2 - x
+    deltaY = y2 - y
+    return math.atan2(deltaY,deltaX)
 
 #DRAWING FUNCTION
 def drawGameWindow():
@@ -428,6 +454,7 @@ stars_group = pygame.sprite.Group()
 projectile_group = pygame.sprite.Group()
 enemies_group = pygame.sprite.Group()
 
+
 #JSON ACCESS
 accessLevels = os.path.join(cwd, "data\levels.json")
 with open(accessLevels) as levels_file:
@@ -444,11 +471,9 @@ with open(accessLevels) as levels_file:
         enemies_group.add(MeleeMinion(*(tuple(levelData[levelSelected]['enemies']["MeleeMinion"][spawn]))))
 
 
-
 player = Player()
 stars_timer = 0
 run = True
-
 while run:
     timer = pygame.time.get_ticks()
     pressed_keys = pygame.key.get_pressed()
@@ -460,8 +485,8 @@ while run:
             if event.key == K_SPACE and not player.jetstate:
                 player.gravitystate = True
             if event.key == K_r:
-                player.rect.center = (140,50)
-            if event.key == K_f:
+                player.rect.kill()
+            if event.key == K_b:
                 projectile_group.add(CokeBlade(player.rect.x+25, player.rect.y+30, player.facing))
             if event.key == K_g:
                 projectile_group.add(ExplosiveCoke(player.rect.x+25, player.rect.y+30, player.facing))
