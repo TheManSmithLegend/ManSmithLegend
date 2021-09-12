@@ -104,6 +104,21 @@ class ground(pygame.sprite.Sprite):
             elif not self.movetoggle:
                 self.rect.move_ip(-self.groundmovex, -self.groundmovey)
 
+#HEALTH - TO BE FIXED
+
+class Health(pygame.sprite.Sprite):
+    def __init__(self, posx, posy, health):
+        super(Health,self).__init__()
+        self.image = pygame.Surface((45, 12))
+        self.image.fill((222,31,42))
+        self.rect = self.image.get_rect(center = (posx, posy))
+        self.health = health
+
+    def statuscheck(self, new_posx, new_posy, new_health):
+        self.rect.center = (new_posx, new_posy-75)
+        self.size = round(new_health/self.health)
+        self.image = pygame.transform.scale(self.image, (self.size*45, 12))
+
 #PLAYER
 
 class Player(pygame.sprite.Sprite):
@@ -181,7 +196,7 @@ class Player(pygame.sprite.Sprite):
             self.rect.move_ip(3,0)
             self.Rbasemove = 4
             self.Lbasemove = 4
-        if camera_up and not self.gravitystate:
+        if camera_up:
             self.rect.move_ip(0,4)
         if camera_down:
             self.rect.move_ip(0,-4)
@@ -209,6 +224,7 @@ class Player(pygame.sprite.Sprite):
     def player_pos(self):
         return self.rect.center
 
+#WEAPONS
 
 #PROJECTILES
 
@@ -230,6 +246,15 @@ class Projectile(pygame.sprite.Sprite):
         self.y_vel -= self.y_grav
         if self.rect.y > screen_height:
             self.kill()
+
+        if camera_right:
+            self.rect.move_ip(-3,0)
+        if camera_left:
+            self.rect.move_ip(3,0)
+        if camera_up:
+            self.rect.move_ip(0,4)
+        if camera_down:
+            self.rect.move_ip(0,-4)
 
 class ExplosiveCoke(Projectile):
     def __init__(self, posx, posy, facing):
@@ -254,6 +279,34 @@ class CokeBlade(Projectile):
 
     def update(self):
         super().update()
+        #hit_enemycollisions = pygame.sprite.spritecollide(self, enemies_group, dokill = False, collided = None)
+        #for enemy in hit_enemycollisions:
+            #enemy.health - self.damage
+
+#MELEE
+class Melee(pygame.sprite.Sprite):
+    def __init__(self, posx, posy, facing):
+        super(Melee,self).__init__()
+        self.image = pygame.Surface((38,35))
+        self.image.fill((255,255,255))
+        self.rect = self.image.get_rect(center = (posx, posy))
+        self.facing = facing
+        self.attackspeed = 2
+        self.damage = 2
+        self.time = 0
+        self.attacktimer = 12
+
+    def update(self):
+        if self.time >= self.attacktimer:
+            self.kill()
+        if self.facing == 1:
+            self.rect.midleft = player.rect.midright
+        if self.facing == -1:
+            self.rect.midright = player.rect.midleft
+        melee_enemycollisions = pygame.sprite.spritecollide(self, enemies_group, dokill = False, collided = None)
+        for enemy in melee_enemycollisions:
+            enemy.health -= self.damage
+        self.time += 1
 
 #MINIONS:
 
@@ -269,6 +322,8 @@ class StandardMinion(pygame.sprite.Sprite):
             self.sentrymode_imglist.append(pygame.transform.scale(pygame.image.load(i), (60, 120)))
         self.image = self.sentrymode_imglist[0]
         self.rect = self.image.get_rect(center = (posx, posy))
+
+        #Mechanics
         self.gravitystate = False
         self.falltoggle = True
         self.falling = False
@@ -281,6 +336,11 @@ class StandardMinion(pygame.sprite.Sprite):
         self.attackmode = False
         self.attacklocked = False
         self.attackspeed = attackspeed
+
+        #Health
+        self.health = 12
+        self.healthbar = Health(self.rect.center[0], self.rect.center[1]-50,self.health)
+        projectile_group.add(self.healthbar)
 
     def update(self):
         #STANDARD ANIMATION
@@ -340,7 +400,7 @@ class StandardMinion(pygame.sprite.Sprite):
             self.rect.move_ip(-3,0)
         if camera_left:
             self.rect.move_ip(3,0)
-        if camera_up and not player.gravitystate:
+        if camera_up:
             self.rect.move_ip(0,4)
         if camera_down:
             self.rect.move_ip(0,-4)
@@ -358,7 +418,7 @@ class StandardMinion(pygame.sprite.Sprite):
             if enemy_coord.distance_to(player_coord) > self.attacktolerance:
                 enemy.attackmode = False
                 enemy.sentrymode = True
-
+        self.healthbar.statuscheck(self.rect.center[0], self.rect.center[1], self.health)
 class ExplosiveMinion(StandardMinion):
     def __init__(self, posx, posy, sentryspeed, attackspeed):
         super().__init__(posx, posy, sentryspeed, attackspeed)
@@ -385,8 +445,6 @@ class ExplosiveMinion(StandardMinion):
                 self.rect.y += math.sin(self.target_acquired) * self.firespeed
                 if enemy_gdcollisions or enemy_playercollisions:
                     self.kill()
-
-
 
 
 class RangedMinion(StandardMinion):
@@ -422,6 +480,7 @@ def findAngle(x,y,x2,y2):
 def drawGameWindow():
     screen.fill((0,0,0))
     projectile_group.draw(screen)
+    melee_group.draw(screen)
     player.update(pressed_keys)
     screen.blit(player.image,player.rect)
     stars_group.draw(screen)
@@ -430,6 +489,7 @@ def drawGameWindow():
     stars_group.update()
     ground_group.update(pressed_keys)
     projectile_group.update()
+    melee_group.update()
     enemies_group.update()
     pygame.display.update()
 
@@ -451,7 +511,9 @@ def cameraConfig():
 #PYGAME SPRITES
 ground_group = pygame.sprite.Group()
 stars_group = pygame.sprite.Group()
+health_group = pygame.sprite.Group()
 projectile_group = pygame.sprite.Group()
+melee_group = pygame.sprite.Group()
 enemies_group = pygame.sprite.Group()
 
 
@@ -490,6 +552,8 @@ while run:
                 projectile_group.add(CokeBlade(player.rect.x+25, player.rect.y+30, player.facing))
             if event.key == K_g:
                 projectile_group.add(ExplosiveCoke(player.rect.x+25, player.rect.y+30, player.facing))
+            if event.key == K_v:
+                melee_group.add(Melee(player.rect.center[0], player.rect.center[1], player.facing))
             if event.key == K_j:
                 player.gravitystate = False
         if event.type == sentrymode_time:
