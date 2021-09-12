@@ -109,15 +109,21 @@ class ground(pygame.sprite.Sprite):
 class Health(pygame.sprite.Sprite):
     def __init__(self, posx, posy, health):
         super(Health,self).__init__()
-        self.image = pygame.Surface((45, 12))
+        self.healthwidth = 45
+        self.image = pygame.Surface((self.healthwidth, 12))
         self.image.fill((222,31,42))
         self.rect = self.image.get_rect(center = (posx, posy))
+        self.maxhealth = health
         self.health = health
 
     def statuscheck(self, new_posx, new_posy, new_health):
-        self.rect.center = (new_posx, new_posy-75)
-        self.size = round(new_health/self.health)
-        self.image = pygame.transform.scale(self.image, (self.size*45, 12))
+        if self.health <= 0:
+            self.kill()
+        else:
+            self.rect.center = (new_posx, new_posy-75)
+            self.health = new_health
+            self.fract = self.health/self.maxhealth
+            self.image = pygame.transform.scale(self.image, (round(self.fract*self.healthwidth), 12))
 
 #PLAYER
 
@@ -306,6 +312,8 @@ class Melee(pygame.sprite.Sprite):
         melee_enemycollisions = pygame.sprite.spritecollide(self, enemies_group, dokill = False, collided = None)
         for enemy in melee_enemycollisions:
             enemy.health -= self.damage
+            self.kill()
+            print(enemy.healthbar.health)
         self.time += 1
 
 #MINIONS:
@@ -339,10 +347,13 @@ class StandardMinion(pygame.sprite.Sprite):
 
         #Health
         self.health = 12
+        self.hit = False
         self.healthbar = Health(self.rect.center[0], self.rect.center[1]-50,self.health)
         projectile_group.add(self.healthbar)
 
     def update(self):
+        if self.health <= 0:
+            self.kill()
         #STANDARD ANIMATION
         self.image = self.sentrymode_imglist[self.index]
         if self.index != len(self.sentrymode_imglist)-1:
@@ -444,7 +455,7 @@ class ExplosiveMinion(StandardMinion):
                 self.rect.x += math.cos(self.target_acquired) * self.firespeed
                 self.rect.y += math.sin(self.target_acquired) * self.firespeed
                 if enemy_gdcollisions or enemy_playercollisions:
-                    self.kill()
+                    self.health = 0
 
 
 class RangedMinion(StandardMinion):
@@ -480,7 +491,6 @@ def findAngle(x,y,x2,y2):
 def drawGameWindow():
     screen.fill((0,0,0))
     projectile_group.draw(screen)
-    melee_group.draw(screen)
     player.update(pressed_keys)
     screen.blit(player.image,player.rect)
     stars_group.draw(screen)
