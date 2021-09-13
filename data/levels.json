@@ -3,9 +3,9 @@
 
       "structures": {
         "main_floor":[0,700,700,300,false,0,0,0],
-        "part_1":[300,450,200,5,true,2,-1,true],
-        "part_2":[100,100,200,5,false,0,0,0],
-        "lower_floor":[700,830,1500,60,false,0,0,0]
+        "part_1":[300,450,200,42,true,2,-1,true],
+        "part_2":[100,100,200,42,false,0,0,0],
+        "lower_floor":[600,830,2000,60,false,0,0,0]
         },
 
       "enemies": {

@@ -245,13 +245,13 @@ class Projectile(pygame.sprite.Sprite):
         self.y_vel = 0
         self.y_grav = 0
         self.damage = 0
+        self.inair = True
 
     def update(self):
-        self.rect.x += self.x_vel * self.facing
-        self.rect.y -= self.y_vel
-        self.y_vel -= self.y_grav
-        if self.rect.y > screen_height:
-            self.kill()
+        if self.inair:
+            self.rect.x += self.x_vel * self.facing
+            self.rect.y -= self.y_vel
+            self.y_vel -= self.y_grav
 
         if camera_right:
             self.rect.move_ip(-3,0)
@@ -266,13 +266,70 @@ class ExplosiveCoke(Projectile):
     def __init__(self, posx, posy, facing):
         self.colour = (0,255,0)
         super().__init__(posx, posy, facing)
-        self.x_vel = 8
-        self.y_vel = 10
+        #PROJECTILE VARS
+        self.x_vel = 6
+        self.y_vel = 9
         self.y_grav = 0.4
         self.damage = 10
 
+        #EXPLOSIVE VARS
+        self.detonate = False
+
+        #BOUNCE VARS
+        self.bounceoff_floor = False
+        self.bounceoff_roof = False
+        self.bounceoff_right = False
+        self.bounceoff_left = False
+        self.friction = 0
+        self.bouncefactor = 4
+        self.x_velbounce = self.bouncefactor
+        self.y_velbounce = self.bouncefactor
+        self.y_gravbounce = 0.4
+
+
     def update(self):
         super().update()
+        explosive_groundcollisions = pygame.sprite.spritecollide(self, ground_group, dokill = False, collided = None)
+        for ground in explosive_groundcollisions:
+            self.inair = False
+            if abs(self.rect.bottom-ground.rect.top) <= 42:
+                self.bounceoff_roof, self.bounceoff_right, self.bounceoff_left = False, False, False
+                self.bounceoff_floor = True
+                self.bouncefactor -= self.friction
+                self.x_velbounce = self.bouncefactor
+                self.y_velbounce = self.bouncefactor
+            if abs(self.rect.top-ground.rect.bottom) <= 42:
+                self.bounceoff_floor, self.bounceoff_right, self.bounceoff_left = False, False, False
+                self.bounceoff_roof = True
+            if abs(self.rect.left-ground.rect.right) <= 22:
+                self.bounceoff_floor, self.bounceoff_right, self.bounceoff_roof = False, False, False
+                self.bounceoff_left = True
+            if abs(self.rect.right-ground.rect.left) <= 22:
+                self.bounceoff_floor, self.bounceoff_left, self.bounceoff_roof = False, False, False
+                self.bounceoff_right = True
+        if self.bounceoff_floor and self.bouncefactor > 0:
+            self.rect.x += self.x_velbounce * self.facing
+            self.rect.y -= self.y_velbounce
+            self.y_velbounce -= self.y_gravbounce
+            self.friction += 0.025
+        elif self.bounceoff_roof:
+            self.rect.x += self.x_velbounce * self.facing
+            self.rect.y += self.y_velbounce
+            self.y_velbounce += self.y_gravbounce
+        elif self.bounceoff_left:
+            self.facing = 1
+            self.rect.x += self.x_velbounce * self.facing
+            self.rect.y += self.y_velbounce
+            self.y_velbounce += self.y_gravbounce
+        elif self.bounceoff_right:
+            self.facing = -1
+            self.rect.x += self.x_velbounce * self.facing
+            self.rect.y += self.y_velbounce
+            self.y_velbounce += self.y_gravbounce
+        if self.detonate:
+            print('boom')
+            self.detonate = False
+
 
 class CokeBlade(Projectile):
     def __init__(self, posx, posy, facing):
@@ -285,9 +342,10 @@ class CokeBlade(Projectile):
 
     def update(self):
         super().update()
-        #hit_enemycollisions = pygame.sprite.spritecollide(self, enemies_group, dokill = False, collided = None)
-        #for enemy in hit_enemycollisions:
-            #enemy.health - self.damage
+        blade_enemycollisions = pygame.sprite.spritecollide(self, enemies_group, dokill = False, collided = None)
+        for enemy in blade_enemycollisions:
+            enemy.health -= self.damage
+            self.kill()
 
 #MELEE
 class Melee(pygame.sprite.Sprite):
@@ -313,7 +371,6 @@ class Melee(pygame.sprite.Sprite):
         for enemy in melee_enemycollisions:
             enemy.health -= self.damage
             self.kill()
-            print(enemy.healthbar.health)
         self.time += 1
 
 #MINIONS:
@@ -564,6 +621,10 @@ while run:
                 projectile_group.add(ExplosiveCoke(player.rect.x+25, player.rect.y+30, player.facing))
             if event.key == K_v:
                 melee_group.add(Melee(player.rect.center[0], player.rect.center[1], player.facing))
+            if event.key == K_x:
+                for sprite in projectile_group:
+                    if hasattr(sprite, 'detonate'):
+                        sprite.detonate = True
             if event.key == K_j:
                 player.gravitystate = False
         if event.type == sentrymode_time:
