@@ -238,7 +238,7 @@ class Projectile(pygame.sprite.Sprite):
     def __init__(self, posx, posy, facing):
         super(Projectile,self).__init__()
         self.image = pygame.Surface((8,8))
-        self.image.fill((self.colour))
+        self.image.fill((255,255,255))
         self.rect = self.image.get_rect(center = (posx, posy))
         self.facing = facing
         self.x_vel = 0
@@ -262,10 +262,19 @@ class Projectile(pygame.sprite.Sprite):
         if camera_down:
             self.rect.move_ip(0,-4)
 
-class ExplosiveCoke(Projectile):
+class ExplosivePepsi(Projectile):
     def __init__(self, posx, posy, facing):
-        self.colour = (0,255,0)
         super().__init__(posx, posy, facing)
+        self.sentrymode_imglist = []
+        self.index = 0
+        directory = os.path.join(cwd, "assets\ExplosivePepsi")
+        for spritename in os.listdir(directory):
+            i = os.path.join(directory, spritename)
+            self.sentrymode_imglist.append(pygame.transform.scale(pygame.image.load(i), (16, 32)))
+        self.image = self.sentrymode_imglist[0]
+        self.rect = self.image.get_rect(center = (posx, posy))
+        self.animtime = 0
+
         #PROJECTILE VARS
         self.x_vel = 6
         self.y_vel = 9
@@ -289,6 +298,17 @@ class ExplosiveCoke(Projectile):
 
     def update(self):
         super().update()
+        #STANDARD ANIMATION
+        self.image = self.sentrymode_imglist[self.index]
+        if self.animtime > 5:
+            if self.index != len(self.sentrymode_imglist)-1:
+                self.index += 1
+            else:
+                self.index = 0
+            self.animtime = 0
+        else:
+            self.animtime += 1
+        #COLLISIONS
         explosive_groundcollisions = pygame.sprite.spritecollide(self, ground_group, dokill = False, collided = None)
         for ground in explosive_groundcollisions:
             self.inair = False
@@ -330,10 +350,8 @@ class ExplosiveCoke(Projectile):
             print('boom')
             self.detonate = False
 
-
 class CokeBlade(Projectile):
     def __init__(self, posx, posy, facing):
-        self.colour = (0,0,255)
         super().__init__(posx, posy, facing)
         self.x_vel = 16
         self.y_vel = 0
@@ -387,6 +405,7 @@ class StandardMinion(pygame.sprite.Sprite):
             self.sentrymode_imglist.append(pygame.transform.scale(pygame.image.load(i), (60, 120)))
         self.image = self.sentrymode_imglist[0]
         self.rect = self.image.get_rect(center = (posx, posy))
+        self.animtime = 0
 
         #Mechanics
         self.gravitystate = False
@@ -404,7 +423,6 @@ class StandardMinion(pygame.sprite.Sprite):
 
         #Health
         self.health = 12
-        self.hit = False
         self.healthbar = Health(self.rect.center[0], self.rect.center[1]-50,self.health)
         projectile_group.add(self.healthbar)
 
@@ -413,10 +431,14 @@ class StandardMinion(pygame.sprite.Sprite):
             self.kill()
         #STANDARD ANIMATION
         self.image = self.sentrymode_imglist[self.index]
-        if self.index != len(self.sentrymode_imglist)-1:
-            self.index += 1
+        if self.animtime > 10:
+            if self.index != len(self.sentrymode_imglist)-1:
+                self.index += 1
+            else:
+                self.index = 0
+            self.animtime = 0
         else:
-            self.index = 0
+            self.animtime += 1
         #ACTION MECHANICS
         if self.gravitystate and not self.falling:
             self.falltoggle = False
@@ -487,6 +509,7 @@ class StandardMinion(pygame.sprite.Sprite):
                 enemy.attackmode = False
                 enemy.sentrymode = True
         self.healthbar.statuscheck(self.rect.center[0], self.rect.center[1], self.health)
+
 class ExplosiveMinion(StandardMinion):
     def __init__(self, posx, posy, sentryspeed, attackspeed):
         super().__init__(posx, posy, sentryspeed, attackspeed)
@@ -618,7 +641,7 @@ while run:
             if event.key == K_b:
                 projectile_group.add(CokeBlade(player.rect.x+25, player.rect.y+30, player.facing))
             if event.key == K_g:
-                projectile_group.add(ExplosiveCoke(player.rect.x+25, player.rect.y+30, player.facing))
+                projectile_group.add(ExplosivePepsi(player.rect.x+25, player.rect.y+30, player.facing))
             if event.key == K_v:
                 melee_group.add(Melee(player.rect.center[0], player.rect.center[1], player.facing))
             if event.key == K_x:
