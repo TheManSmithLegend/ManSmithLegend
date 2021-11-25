@@ -1,7 +1,7 @@
 # ManSmithLegend
 
 PURPOSE:
-Welcome to ManSmithLegend. This project is dedicated to the grade 11/12 computer science teacher at Mentor College (Mississauga) named Mr. Smith.
+Welcome to ManSmithLegend.
 
 ABOUT:
 This project primarily utilizes the pygame module to create a side-scroller styled arcade game.
